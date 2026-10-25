@@ -1,0 +1,283 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Sound Bender</title>
+<style>
+  :root {
+    --paper: #fbfaf6;
+    --card: #ffffff;
+    --ink: #121417;
+    --ink-soft: #4d535c;
+    --ink-faint: #868c95;
+    --blue: #1f5fd6;
+    --blue-deep: #143f94;
+    --blue-wash: #e6eefc;
+    --ok: #2f8a4a;
+    --warn: #b7791f;
+    --bad: #b8322a;
+    --edge: 3px solid #121417;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--paper); color: var(--ink); }
+  body { font: 16px/1.4 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; padding: 16px 16px 40px; max-width: 640px; margin: 0 auto; }
+  header { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 14px; }
+  h1 { margin: 0; font-size: 28px; letter-spacing: -0.5px; }
+  h1 span { color: var(--blue); }
+  .status { font-size: 13px; border: 2px solid var(--ink); border-radius: 999px; padding: 4px 10px; background: var(--card); white-space: nowrap; }
+  .status.ok { color: var(--ok); }
+  .status.bad { color: var(--bad); }
+  .card { background: var(--card); border: var(--edge); border-radius: 14px; padding: 14px; margin-bottom: 14px; box-shadow: 4px 4px 0 var(--ink); }
+  .card h2 { margin: 0 0 10px; font-size: 18px; display: flex; align-items: center; gap: 8px; }
+  .card h2 .dot { width: 12px; height: 12px; border-radius: 50%; background: var(--blue); border: 2px solid var(--ink); }
+  .row { display: flex; gap: 10px; flex-wrap: wrap; align-items: end; }
+  .field { display: flex; flex-direction: column; gap: 4px; flex: 1 1 120px; min-width: 0; }
+  label { font-size: 13px; color: var(--ink-soft); }
+  input[type=number], select { font: inherit; padding: 8px 10px; border: 2px solid var(--ink); border-radius: 10px; background: var(--paper); width: 100%; }
+  input[type=file] { font-size: 14px; width: 100%; }
+  input[type=range] { width: 100%; accent-color: var(--blue); }
+  .note { font-size: 13px; color: var(--ink-faint); margin-top: 8px; min-height: 18px; }
+  .note.bad { color: var(--bad); }
+  button { font: inherit; font-weight: 700; padding: 11px 16px; border: var(--edge); border-radius: 12px; background: var(--card); color: var(--ink); box-shadow: 3px 3px 0 var(--ink); cursor: pointer; }
+  button:active { transform: translate(2px, 2px); box-shadow: 1px 1px 0 var(--ink); }
+  button.primary { background: var(--blue); color: #fff; }
+  button:disabled { opacity: 0.45; }
+  .buttons { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 12px; }
+  .readout { background: var(--blue-wash); border: 2px solid var(--blue-deep); border-radius: 10px; padding: 10px 12px; font-size: 15px; margin-top: 10px; }
+  .readout b { color: var(--blue-deep); }
+  .check { display: flex; align-items: center; gap: 8px; font-size: 14px; margin-top: 10px; }
+  .check input { width: 20px; height: 20px; accent-color: var(--blue); }
+  audio { width: 100%; margin-top: 10px; }
+  a.dl { display: inline-block; margin-top: 8px; color: var(--blue-deep); font-weight: 700; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Sound <span>Bender</span></h1>
+  <div class="status" id="status">server: checking</div>
+</header>
+
+<section class="card">
+  <h2><span class="dot"></span>Voice</h2>
+  <div class="field"><label for="voiceFile">Acapella or vocal file</label><input type="file" id="voiceFile" accept="audio/*"></div>
+  <div class="row" style="margin-top:10px">
+    <div class="field"><label for="voiceBpm">Voice BPM</label><input type="number" id="voiceBpm" step="0.1" min="30" max="300"></div>
+    <div class="field"><label for="voiceKey">Voice key</label><select id="voiceKey"></select></div>
+  </div>
+  <div class="note" id="voiceNote"></div>
+</section>
+
+<section class="card">
+  <h2><span class="dot"></span>Beat</h2>
+  <div class="field"><label for="beatFile">Instrumental file, or type the target below</label><input type="file" id="beatFile" accept="audio/*"></div>
+  <div class="row" style="margin-top:10px">
+    <div class="field"><label for="beatBpm">Beat BPM</label><input type="number" id="beatBpm" step="0.1" min="30" max="300"></div>
+    <div class="field"><label for="beatKey">Beat key</label><select id="beatKey"></select></div>
+  </div>
+  <div class="note" id="beatNote"></div>
+</section>
+
+<section class="card">
+  <h2><span class="dot"></span>Bend</h2>
+  <div class="readout" id="plan">Load a voice and set a beat BPM and key.</div>
+  <div class="row" style="margin-top:10px">
+    <div class="field"><label for="tempoOut">Tempo change</label><input type="number" id="tempoOut" step="0.001" min="0.5" max="2"></div>
+    <div class="field"><label for="semiOut">Pitch shift in semitones</label><input type="number" id="semiOut" step="1" min="-12" max="12"></div>
+  </div>
+  <label class="check"><input type="checkbox" id="formant" checked>Keep the singer's natural voice character when shifting</label>
+  <div class="buttons"><button class="primary" id="bendBtn" disabled>Bend the voice</button></div>
+  <div class="note" id="bendNote"></div>
+  <audio id="bentAudio" controls hidden></audio>
+  <a class="dl" id="bentLink" download="sound-bender-bent.mp3" hidden>Save the bent voice</a>
+</section>
+
+<section class="card">
+  <h2><span class="dot"></span>Play together</h2>
+  <div class="field"><label for="offset">Voice start offset: <span id="offsetVal">0 ms</span></label><input type="range" id="offset" min="-3000" max="3000" step="10" value="0"></div>
+  <div class="row" style="margin-top:10px">
+    <div class="field"><label for="voiceVol">Voice volume</label><input type="range" id="voiceVol" min="0" max="1.5" step="0.01" value="1"></div>
+    <div class="field"><label for="beatVol">Beat volume</label><input type="range" id="beatVol" min="0" max="1.5" step="0.01" value="0.8"></div>
+  </div>
+  <div class="buttons">
+    <button class="primary" id="playBtn" disabled>Play smash</button>
+    <button id="stopBtn" disabled>Stop</button>
+  </div>
+  <div class="note" id="playNote">Needs a beat file and a bent voice.</div>
+</section>
+
+<script>
+const NAMES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+const $ = id => document.getElementById(id);
+let SERVER = null;
+const state = { voiceFile: null, beatFile: null, bentBlob: null, beatBuf: null, bentBuf: null };
+let ctx = null, voiceGain = null, beatGain = null, playing = [];
+
+function fillKeys(sel) {
+  sel.innerHTML = '<option value="">unknown</option>' +
+    NAMES.map((n, i) => '<option value="' + i + ':major">' + n + ' major</option><option value="' + i + ':minor">' + n + ' minor</option>').join('');
+}
+fillKeys($('voiceKey'));
+fillKeys($('beatKey'));
+
+function note(id, text, bad) { $(id).textContent = text || ''; $(id).classList.toggle('bad', !!bad); }
+
+async function boot() {
+  try {
+    const cfg = await (await fetch('/api/config', { cache: 'no-store' })).json();
+    SERVER = cfg.server;
+  } catch (e) {}
+  if (!SERVER) { setStatus('server: not set', false); return; }
+  try {
+    const h = await (await fetch(SERVER + '/', { cache: 'no-store' })).json();
+    setStatus(h.ok ? 'server: ready' : 'server: missing tools', !!h.ok);
+  } catch (e) { setStatus('server: waking up', false); setTimeout(boot, 8000); }
+}
+function setStatus(text, ok) { const s = $('status'); s.textContent = text; s.className = 'status ' + (ok ? 'ok' : 'bad'); }
+
+async function analyze(file, which) {
+  const noteId = which + 'Note';
+  if (!SERVER) { note(noteId, 'The processing server address is not set yet.', true); return; }
+  note(noteId, 'Listening for tempo and key...');
+  const form = new FormData();
+  form.append('file', file);
+  try {
+    const res = await fetch(SERVER + '/analyze', { method: 'POST', body: form });
+    const d = await res.json();
+    if (!res.ok) throw new Error(d.detail || 'analysis failed');
+    $(which + 'Bpm').value = d.bpm;
+    $(which + 'Key').value = d.tonic + ':' + d.mode;
+    note(noteId, 'Heard ' + d.key + ' around ' + d.bpm + ' BPM. Fix either one by hand if it sounds off.');
+  } catch (e) { note(noteId, String(e.message || e), true); }
+  plan();
+}
+
+function readKey(sel) {
+  const v = $(sel).value;
+  if (!v) return null;
+  const [t, m] = v.split(':');
+  return { tonic: +t, mode: m };
+}
+
+// A minor key is compared through its relative major so a minor voice can land on a major beat.
+function shiftBetween(from, to) {
+  const a = (from.tonic + (from.mode === 'minor' ? 3 : 0)) % 12;
+  const b = (to.tonic + (to.mode === 'minor' ? 3 : 0)) % 12;
+  return ((b - a + 18) % 12) - 6;
+}
+
+// Picks plain, double or half time, whichever keeps the voice closest to its own speed.
+function bestTempo(voiceBpm, beatBpm) {
+  const raw = beatBpm / voiceBpm;
+  return [raw, raw * 2, raw / 2].filter(r => r >= 0.5 && r <= 2).sort((x, y) => Math.abs(Math.log(x)) - Math.abs(Math.log(y)))[0] || raw;
+}
+
+function plan() {
+  const vb = parseFloat($('voiceBpm').value), bb = parseFloat($('beatBpm').value);
+  const vk = readKey('voiceKey'), bk = readKey('beatKey');
+  const parts = [];
+  if (vb > 0 && bb > 0) {
+    const t = bestTempo(vb, bb);
+    $('tempoOut').value = t.toFixed(3);
+    const pct = Math.round((t - 1) * 100);
+    parts.push('Tempo: <b>' + (pct === 0 ? 'unchanged' : (pct > 0 ? 'faster by ' + pct + ' percent' : 'slower by ' + (-pct) + ' percent')) + '</b>');
+  }
+  if (vk && bk) {
+    const s = shiftBetween(vk, bk);
+    $('semiOut').value = s;
+    parts.push('Pitch: <b>' + (s === 0 ? 'unchanged' : (s > 0 ? 'up ' + s : 'down ' + (-s)) + (Math.abs(s) === 1 ? ' semitone' : ' semitones')) + '</b>');
+  }
+  $('plan').innerHTML = parts.length ? parts.join('<br>') : 'Load a voice and set a beat BPM and key.';
+  $('bendBtn').disabled = !state.voiceFile;
+}
+
+$('voiceFile').addEventListener('change', e => {
+  state.voiceFile = e.target.files[0] || null;
+  if (state.voiceFile) analyze(state.voiceFile, 'voice');
+  plan();
+});
+$('beatFile').addEventListener('change', async e => {
+  state.beatFile = e.target.files[0] || null;
+  state.beatBuf = null;
+  if (state.beatFile) {
+    analyze(state.beatFile, 'beat');
+    try { state.beatBuf = await decode(state.beatFile); } catch (err) { note('beatNote', 'This browser could not play that beat file.', true); }
+  }
+  readyPlay();
+});
+['voiceBpm', 'beatBpm', 'voiceKey', 'beatKey'].forEach(id => $(id).addEventListener('change', plan));
+
+$('bendBtn').addEventListener('click', async () => {
+  if (!SERVER || !state.voiceFile) return;
+  const tempo = parseFloat($('tempoOut').value) || 1;
+  const semis = parseFloat($('semiOut').value) || 0;
+  $('bendBtn').disabled = true;
+  note('bendNote', 'Bending. A full song takes a minute or two.');
+  const form = new FormData();
+  form.append('file', state.voiceFile);
+  form.append('tempo', String(tempo));
+  form.append('semitones', String(semis));
+  form.append('formant', $('formant').checked ? 'true' : 'false');
+  try {
+    const res = await fetch(SERVER + '/bend', { method: 'POST', body: form });
+    if (!res.ok) { let d = {}; try { d = await res.json(); } catch (e) {} throw new Error(d.detail || 'bend failed'); }
+    state.bentBlob = await res.blob();
+    const url = URL.createObjectURL(state.bentBlob);
+    $('bentAudio').src = url; $('bentAudio').hidden = false;
+    $('bentLink').href = url; $('bentLink').hidden = false;
+    state.bentBuf = await decode(state.bentBlob);
+    note('bendNote', 'Done.');
+  } catch (e) { note('bendNote', String(e.message || e), true); }
+  $('bendBtn').disabled = false;
+  readyPlay();
+});
+
+function audioCtx() {
+  if (!ctx) {
+    ctx = new (window.AudioContext || window.webkitAudioContext)();
+    voiceGain = ctx.createGain(); beatGain = ctx.createGain();
+    voiceGain.connect(ctx.destination); beatGain.connect(ctx.destination);
+    voiceGain.gain.value = parseFloat($('voiceVol').value);
+    beatGain.gain.value = parseFloat($('beatVol').value);
+  }
+  return ctx;
+}
+async function decode(blob) { return audioCtx().decodeAudioData(await blob.arrayBuffer()); }
+
+function readyPlay() {
+  const ready = !!(state.beatBuf && state.bentBuf);
+  $('playBtn').disabled = !ready;
+  note('playNote', ready ? 'Ready.' : 'Needs a beat file and a bent voice.');
+}
+
+function stop() {
+  playing.forEach(s => { try { s.stop(); } catch (e) {} });
+  playing = [];
+  $('stopBtn').disabled = true;
+}
+
+function play() {
+  stop();
+  const c = audioCtx();
+  if (c.state === 'suspended') c.resume();
+  const off = parseInt($('offset').value, 10) / 1000;
+  const start = c.currentTime + 0.15;
+  const beat = c.createBufferSource(); beat.buffer = state.beatBuf; beat.connect(beatGain);
+  const voice = c.createBufferSource(); voice.buffer = state.bentBuf; voice.connect(voiceGain);
+  if (off >= 0) { beat.start(start); voice.start(start + off); }
+  else { beat.start(start); voice.start(start, -off); }
+  playing = [beat, voice];
+  $('stopBtn').disabled = false;
+}
+
+$('playBtn').addEventListener('click', play);
+$('stopBtn').addEventListener('click', stop);
+$('offset').addEventListener('input', () => { $('offsetVal').textContent = $('offset').value + ' ms'; });
+$('offset').addEventListener('change', () => { if (playing.length) play(); });
+$('voiceVol').addEventListener('input', () => { if (voiceGain) voiceGain.gain.value = parseFloat($('voiceVol').value); });
+$('beatVol').addEventListener('input', () => { if (beatGain) beatGain.gain.value = parseFloat($('beatVol').value); });
+
+boot();
+</script>
+</body>
+</html>

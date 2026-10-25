@@ -1,0 +1,8 @@
+{
+  "rewrites": [
+    { "source": "/", "destination": "/sound-bender-v1.html" }
+  ],
+  "headers": [
+    { "source": "/", "headers": [ { "key": "Cache-Control", "value": "no-cache, must-revalidate" } ] }
+  ]
+}
